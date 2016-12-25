@@ -1,0 +1,23 @@
+#!/bin/bash
+
+: ${DOCKERDNS_FILE:="/etc/enp2s0-dnsmasq.d/docker0-network"}
+: ${DOCKERDNS_SUFFIX:=".docker.local"}
+
+echo -n '' > $DOCKERDNS_FILE || exit
+
+for CONTAINER in `docker ps -q`
+do
+    NAME=`docker inspect -f "{{.Name}}" $CONTAINER | sed -e 's/^\/*//'`
+    ADDRESS=`ip addr show enp2s0 | grep -Po 'inet \K[\d.]+'  | grep -E -o "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"`
+    if [[ ${NAME} == "nginx-proxy" ]]; then
+        # No Entry for nginx-proxy. e.g. nginxy-proxy :80, :443 -> 192.168.0.103:80,192.168.0.103:443
+        continue
+    fi
+    echo "add DNS record: $NAME$DOCKERDNS_SUFFIX => $ADDRESS"
+    echo "host-record=$NAME,$NAME$DOCKERDNS_SUFFIX,$ADDRESS" >> $DOCKERDNS_FILE
+done
+
+echo "$DOCKERDNS_FILE updated."
+
+systemctl restart enp2s0-dnsmasq.service
+systemctl status enp2s0-dnsmasq.service -l
