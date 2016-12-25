@@ -1,6 +1,6 @@
 #!/bin/bash
 
-: ${DOCKERDNS_FILE:="/etc/dnsmasq.d/docker"}
+: ${DOCKERDNS_FILE:="/etc/docker0-dnsmasq.d/docker0-network"}
 : ${DOCKERDNS_SUFFIX:=".docker.local"}
 
 echo -n '' > $DOCKERDNS_FILE || exit
@@ -10,9 +10,10 @@ do
 	NAME=`docker inspect -f "{{.Name}}" $CONTAINER | sed -e 's/^\/*//'`
 	ADDRESS=`docker inspect -f "{{.NetworkSettings.IPAddress}}" $CONTAINER`
 	echo "add DNS record: $NAME$DOCKERDNS_SUFFIX => $ADDRESS"
-	echo "address=/$NAME$DOCKERDNS_SUFFIX/$ADDRESS" >> $DOCKERDNS_FILE
+	echo "host-record=$NAME,$NAME$DOCKERDNS_SUFFIX,$ADDRESS" >> $DOCKERDNS_FILE
 done
 
 echo "$DOCKERDNS_FILE updated."
 
-service dnsmasq restart
+systemctl restart docker0-dnsmasq.service
+systemctl status docker0-dnsmasq.service -l
